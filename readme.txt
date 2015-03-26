@@ -2,7 +2,7 @@
 Contributors: mtreherne
 Tags: WooCommerce, ActiveCampaign
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=matt@sendmail.me.uk&currency_code=GBP&item_name=Donation+for+WC-AC+Hook
-Requires at least: 4.1.1 (not tested on previous versions)
+Requires at least: 4.0.1 (not tested on previous versions)
 Tested up to: 4.1.1
 Stable tag: 1.0
 License: GPLv2
