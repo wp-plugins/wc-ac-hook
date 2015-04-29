@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name: WC-AC Hook
- * Plugin URI:
+ * Plugin URI: https://wordpress.org/plugins/wc-ac-hook/
  * Description: Integrates WooCommerce with ActiveCampaign by adding or updating a contact on ActiveCampaign with specified tags, when an order is completed on WooCommerce
- * Version: 1.0
+ * Version: 1.1
  * Author: Matthew Treherne
  * Author URI: https://profiles.wordpress.org/mtreherne
  * Text Domain: wc-ac-hook
@@ -45,8 +45,8 @@ class WC_AC_Hook {
 			add_action( 'woocommerce_product_options_advanced', array ($this, 'product_advanced_field'));
 			add_action( 'woocommerce_process_product_meta', array ($this, 'custom_product_fields_save')); 
 		}
-		// Call the ActiveCampaign API whenever an order is completed
-		add_action('woocommerce_order_status_completed', array ($this, 'order_completed'));
+		// Call the ActiveCampaign API whenever an order status is changed
+		add_action('woocommerce_order_status_changed', array ($this, 'order_status_change'), 10, 3);
 		add_action('plugins_loaded', array($this, 'load_plugin_textdomain'));
     }
 
@@ -88,8 +88,8 @@ class WC_AC_Hook {
 	}
 
 
-	// This function is called whenever a WooCommerce order is completed
-	public function order_completed ($order_id) {
+	// This function is called whenever a WooCommerce order status is changed
+	public function order_status_change ($order_id, $old_status, $new_status) {
 		$valid_order = true;
 		$log_message = array();
 
@@ -97,37 +97,40 @@ class WC_AC_Hook {
 		$options = get_option( self::OPTION_NAME, null );
 		$tags = $options['ac_default_tag'];
 		$logging_enabled = $options['wc_ac_notification'];
-		$order = new WC_Order( $order_id );
+		$add_on_processing = $options['wc_ac_addonprocessing'];
 
-		// Add the product tags for any of the items on the order
-		$items = $order->get_items();
-		foreach ($items as $item) $tags .= ','.get_post_meta( $item['product_id'], 'activecampaign_tag', true );
+		if (($new_status == 'completed' || ($new_status == 'processing' && $add_on_processing == 'yes'))) {
+			$order = new WC_Order( $order_id );
+
+			// Add the product tags for any of the items on the order
+			$items = $order->get_items();
+			foreach ($items as $item) $tags .= ','.get_post_meta( $item['product_id'], 'activecampaign_tag', true );
 			
-		// eMail is the key on ActiveCampaign so should be validated
-		if (!is_email ($order->billing_email)) {
-			$valid_order = false;
-			$log_message[] = sprintf( __( 'Error: Invalid customer (billing) email address = %s', 'wc-ac-hook' ), $order->billing_email);
-		}
+			// eMail is the key on ActiveCampaign so should be validated
+			if (!is_email ($order->billing_email)) {
+				$valid_order = false;
+				$log_message[] = sprintf( __( 'Error: Invalid customer (billing) email address = %s', 'wc-ac-hook' ), $order->billing_email);
+			}
 
-		// The order details are used to make a call using the ActiveCampaign API to add/update a customer contact
-		if ($valid_order) {
-			include_once('includes/sync-contact.php');
-			$api = new WC_AC_Hook_Sync($options);
-			$contact = array(
-				'email' 				=> $order->billing_email,
-				'first_name'			=> $order->billing_first_name,
-				'last_name' 			=> $order->billing_last_name,
-				'tags' 					=> $tags,
-				'phone' 				=> $order->billing_phone);
-			$api->sync_contact($contact);
-			$log_message = $api->log_message;
+			// The order details are used to make a call using the ActiveCampaign API to add/update a customer contact
+			if ($valid_order) {
+				include_once('includes/sync-contact.php');
+				$api = new WC_AC_Hook_Sync($options);
+				$contact = array(
+					'email' 				=> $order->billing_email,
+					'first_name'			=> $order->billing_first_name,
+					'last_name' 			=> $order->billing_last_name,
+					'tags' 					=> $tags,
+					'phone' 				=> $order->billing_phone);
+				$api->sync_contact($contact);
+				$log_message = $api->log_message;
+			}
 		}
-
+	
 		if ($logging_enabled != 'no') {
 			$log = new WC_Logger();
-			$log_string = '';
-			$log_message[] = sprintf( __( 'Order ID = %s', 'wc-ac-hook' ), $order_id);
-			foreach (array_reverse($log_message) as $value) $log_string .= $value.PHP_EOL;
+			$log_string = sprintf( __( 'Order ID = %s (Status = %s).', 'wc-ac-hook' ), $order_id, $new_status);
+			foreach ($log_message as $value) $log_string .= ' '.$value;
 			$log->add( 'wc-ac-hook', $log_string);
 		}
 		

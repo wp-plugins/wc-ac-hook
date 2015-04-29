@@ -44,6 +44,12 @@ class WC_AC_Hook_Integration extends WC_Integration {
 				'description'       => __( 'The default tags will always be added for any order (if you want multiple tags then comma separate).', 'wc-ac-hook' ),
 				'desc_tip'          => true
 			),
+			'wc_ac_addonprocessing' => array(
+				'title' 			=> __( 'Add/Update Contact', 'wc-ac-hook' ),
+				'type' 				=> 'checkbox',
+				'label' 			=> __( 'When order created (i.e. status is processing)', 'wc-ac-hook' ),
+				'description' 		=> __( 'Default is to wait until order is completed', 'wc-ac-hook' ),
+			),
 			'wc_ac_notification' => array(
 				'title' 			=> __( 'Debug Log', 'wc-ac-hook' ),
 				'type' 				=> 'checkbox',
